@@ -29,6 +29,7 @@ from ._reducer import (
     ScoreReducer,
     ScoreReducers,
     at_least,
+    fail_at,
     max_score,
     mean_score,
     median_score,
@@ -83,6 +84,7 @@ __all__ = [
     "median_score",
     "max_score",
     "at_least",
+    "fail_at",
     "pass_at",
 ]
 _BOOTSTRAP_RENAME_VERSION = "0.3.58"

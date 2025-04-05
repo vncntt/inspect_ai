@@ -12,11 +12,13 @@ from inspect_ai.scorer import (
     ScoreReducer,
     ValueToFloat,
     at_least,
+    fail_at,
     match,
     max_score,
     mean_score,
     median_score,
     mode_score,
+    pass_at,
     score_reducer,
     value_to_float,
 )
@@ -262,3 +264,109 @@ def test_main_reducer():
         Score(value="C"),
     ]
     assert mean_score()(str_scores).value == 0.4
+
+
+def test_fail_at_k_reducer():
+    # Test with all correct scores
+    all_correct = [
+        Score(value=1),
+        Score(value=1),
+        Score(value=1),
+        Score(value=1),
+    ]
+    
+    # Test with some incorrect scores
+    some_incorrect = [
+        Score(value=1),
+        Score(value=0),
+        Score(value=1),
+        Score(value=1),
+    ]
+    
+    # Test with all incorrect scores
+    all_incorrect = [
+        Score(value=0),
+        Score(value=0),
+        Score(value=0),
+        Score(value=0),
+    ]
+    
+    # Create fail@k reducers
+    fail_at_1_reducer = fail_at(1)
+    fail_at_2_reducer = fail_at(2)
+    fail_at_4_reducer = fail_at(4)
+    
+    # Test the reducers
+    assert fail_at_1_reducer(all_correct).value == 1.0
+    assert fail_at_2_reducer(all_correct).value == 1.0
+    assert fail_at_4_reducer(all_correct).value == 1.0
+    
+    assert fail_at_1_reducer(some_incorrect).value == 0.0
+    assert fail_at_2_reducer(some_incorrect).value == 0.0
+    assert fail_at_4_reducer(some_incorrect).value == 0.0
+    
+    assert fail_at_1_reducer(all_incorrect).value == 0.0
+    assert fail_at_2_reducer(all_incorrect).value == 0.0
+    assert fail_at_4_reducer(all_incorrect).value == 0.0
+    
+    # Test with list values
+    list_correct = [
+        Score(value=[1, 1]),
+        Score(value=[1, 1]),
+    ]
+    list_incorrect = [
+        Score(value=[1, 0]),
+        Score(value=[1, 1]),
+    ]
+    
+    assert fail_at_2_reducer(list_correct).value == [1.0, 1.0]
+    assert fail_at_2_reducer(list_incorrect).value == [1.0, 0.0]
+    
+    # Test with dict values
+    dict_correct = [
+        Score(value={"a": 1, "b": 1}),
+        Score(value={"a": 1, "b": 1}),
+    ]
+    dict_incorrect = [
+        Score(value={"a": 1, "b": 0}),
+        Score(value={"a": 1, "b": 1}),
+    ]
+    
+    assert fail_at_2_reducer(dict_correct).value == {"a": 1.0, "b": 1.0}
+    assert fail_at_2_reducer(dict_incorrect).value == {"a": 1.0, "b": 0.0}
+
+
+def test_compare_pass_at_and_fail_at():
+    # This test demonstrates the difference between pass@k and fail@k
+    test_scores = [
+        Score(value=1),  # Correct
+        Score(value=0),  # Incorrect
+        Score(value=0),  # Incorrect
+        Score(value=1),  # Correct
+    ]
+    
+    # With pass@k, if ANY attempt is correct, it passes
+    pass_at_1_reducer = pass_at(1)
+    pass_at_2_reducer = pass_at(2)
+    
+    # With fail@k, ALL attempts must be correct, otherwise it fails
+    fail_at_1_reducer = fail_at(1)
+    fail_at_2_reducer = fail_at(2)
+    
+    # When k=1, both reducers work the same way for individual scores
+    assert pass_at_1_reducer([test_scores[0]]).value == 1.0  # Correct score passes with pass@1
+    assert fail_at_1_reducer([test_scores[0]]).value == 1.0  # Correct score passes with fail@1
+    
+    assert pass_at_1_reducer([test_scores[1]]).value == 0.0  # Incorrect score fails with pass@1
+    assert fail_at_1_reducer([test_scores[1]]).value == 0.0  # Incorrect score fails with fail@1
+    
+    # With multiple scores, the behavior differs
+    mixed_correct_incorrect = [test_scores[0], test_scores[1]]  # One correct, one incorrect
+    
+    # pass@k will be > 0 because at least one attempt succeeded
+    pass_result = pass_at_2_reducer(mixed_correct_incorrect).value
+    assert pass_result > 0.0
+    
+    # fail@k will be 0 because not all attempts succeeded
+    fail_result = fail_at_2_reducer(mixed_correct_incorrect).value
+    assert fail_result == 0.0

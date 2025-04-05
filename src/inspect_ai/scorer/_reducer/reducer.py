@@ -141,6 +141,39 @@ def pass_at(
     return reduce
 
 
+@score_reducer
+def fail_at(
+    k: int, value: float = 1.0, value_to_float: ValueToFloat = value_to_float()
+) -> ScoreReducer:
+    r"""Tests if ALL k samples are correct (inverse of pass@k).
+    
+    Unlike pass@k which measures if ANY attempt succeeds, fail@k measures if ALL attempts succeed.
+    This tests the lower bound of model capabilities rather than the upper bound.
+
+    Args:
+       k: Epochs to compute probability for.
+       value: Score value threshold.
+       value_to_float: Function to convert score values to float.
+    """
+
+    def reduce(scores: list[Score]) -> Score:
+        def fail_at_k(values: list[float]) -> float:
+            correct = sum(1 for v in values if v == value)
+            total = len(values)
+            
+            return 1.0 if correct == total else 0.0
+
+        if isinstance(scores[0].value, dict):
+            return _compute_dict_stat(scores, value_to_float, fail_at_k)
+        elif isinstance(scores[0].value, list):
+            return _compute_list_stat(scores, value_to_float, fail_at_k)
+        else:
+            return _compute_scalar_stat(scores, value_to_float, fail_at_k)
+
+    setattr(fail_at, REDUCER_NAME, f"fail_at_{k}")
+    return reduce
+
+
 @score_reducer(name="max")
 def max_score(value_to_float: ValueToFloat = value_to_float()) -> ScoreReducer:
     r"""Take the maximum value from a list of scores.
