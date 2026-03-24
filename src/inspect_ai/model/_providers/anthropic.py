@@ -3032,4 +3032,4 @@ def is_image_type(media_type: str) -> bool:
 
 
 def anthropic_extra_body_fields() -> list[str]:
-    return ["metadata", "service_tier"]
+    return ["metadata", "service_tier", "speed"]
